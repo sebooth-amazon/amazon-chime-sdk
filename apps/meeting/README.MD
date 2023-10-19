@@ -16,7 +16,7 @@ git submodule update --remote amazon-chime-sdk-component-library-react
 
 4. Start the webpack server and node server concurrently: `npm start`
 
-5. Open https://0.0.0.0:9000/ in your browser
+5. Open https://0.0.0.0:9000/ in your browser on Mac/Linux or https://localhost:9000 on Windows
 
 ### Troubleshooting
 
@@ -42,8 +42,13 @@ git submodule update --remote amazon-chime-sdk-component-library-react
 The following will create a CloudFormation stack containing a Lambda and API Gateway deployment that runs the demo. Note that S3 bucket name should be globally unique.
 
 ```
-cd /serverless
+cd serverless
 node ./deploy.js -r us-east-1 -b <YOUR-S3-BUCKET-NAME> -s <YOUR-CLOUDFORMATION-STACK-NAME>
 ```
 
 The script will create an S3 bucket and CloudFormation stack with Lambda and API Gateway resources required to run the demo. After the script finishes, it will output a URL that can be opened in a browser.
+
+### Enable transcription
+```
+aws iam create-service-linked-role --aws-service-name transcription.chime.amazonaws.com
+```
