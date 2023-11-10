@@ -7,7 +7,10 @@ interface Props {
   showNav: boolean;
   showRoster: boolean;
   showChat: boolean;
+  showTranscript: boolean;
+
 }
+
 
 export const StyledLayout = styled.main<Props>`
   height: 100vh;
@@ -19,15 +22,8 @@ export const StyledLayout = styled.main<Props>`
     grid-area: content;
   }
 
-  ${({ showNav, showRoster, showChat }) => {
-    if (showNav && (showRoster || showChat)) {
-      return `
-        grid-template-columns: auto auto 1fr;
-        grid-template-areas: 'nav side-panel content';
-      `;
-    }
-
-    if (showNav && (showRoster || showChat)) {
+  ${({ showNav, showRoster, showChat, showTranscript }) => {
+    if (showNav && (showRoster || showChat || showTranscript)) {
       return `
         grid-template-columns: auto auto 1fr;
         grid-template-areas: 'nav side-panel content';
@@ -41,7 +37,7 @@ export const StyledLayout = styled.main<Props>`
       `;
     }
 
-    if (showRoster || showChat) {
+    if (showRoster || showChat || showTranscript) {
       return `
         grid-template-columns: auto 1fr;
         grid-template-areas: 'side-panel content';

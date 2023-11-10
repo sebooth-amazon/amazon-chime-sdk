@@ -12,7 +12,7 @@ Conditions:
   ShouldUseEventBridge: !Equals [true, !Ref UseEventBridge]
 Globals:
   Function:
-    Runtime: nodejs14.x
+    Runtime: nodejs18.x
     Timeout: 30
     MemorySize: 128
     Environment:
@@ -40,11 +40,15 @@ Resources:
               - 'chime:DeleteAttendee'
               - 'chime:GetAttendee'
               - 'chime:ListAttendees'
+              - 'chime:StartMeetingTranscription'
+              - 'chime:StopMeetingTranscription'
             Resource: '*'
       Roles:
         - Ref: ChimeSdkJoinLambdaRole
         - Ref: ChimeSdkAttendeeLambdaRole
         - Ref: ChimeSdkEndLambdaRole
+        - Ref: ChimeSdkStartTranscriptionLambdaRole
+        - Ref: ChimeSdkStopTranscriptionLambdaRole
         - Ref: ChimeSdkCreateMeetingLambdaRole
   CloudWatchAccessPolicy:
     Type: AWS::IAM::Policy
@@ -61,6 +65,20 @@ Resources:
             Resource: '*'
       Roles:
         - Ref: ChimeSdkBrowserLogsLambdaRole
+  BedrockAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: BedrockAccess
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'bedrock:InvokeModel'
+            Resource: '*'
+      Roles:
+        - Ref: BedrockSummarizeLambdaRole
+        - Ref: BedrockSanitizeLambdaRole
   Meetings:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -206,6 +224,34 @@ Resources:
           Properties:
             Path: /attendee
             Method: GET
+  ChimeSdkStartTranscriptionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.startTranscription
+      CodeUri: src/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Meetings
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /startTranscription
+            Method: POST
+  ChimeSdkStopTranscriptionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.stopTranscription
+      CodeUri: src/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Meetings
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /stopTranscription
+            Method: POST
   ChimeSQSQueueLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -268,6 +314,39 @@ Resources:
         - Ref: MeetingNotificationsQueue
   ChimeBrowserLogs:
     Type: AWS::Logs::LogGroup
+  BedrockSummarizeLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.summarize
+      CodeUri: src/
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /summarize
+            Method: POST
+  BedrockSanitizeLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.sanitize
+      CodeUri: src/
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /sanitize
+            Method: POST
+  SaveSummaryLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.saveSummary
+      CodeUri: src/
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /saveSummary
+            Method: POST
 Outputs:
   ApiURL:
     Description: "API endpoint URL for Prod environment"

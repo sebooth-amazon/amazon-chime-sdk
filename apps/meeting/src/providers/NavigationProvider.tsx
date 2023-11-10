@@ -24,6 +24,8 @@ export type NavigationContextType = {
   closeNavbar: () => void;
   showChat: boolean;
   toggleChat: () => void;
+  showTranscript: boolean;
+  toggleTranscript: () => void;
 };
 
 type Props = {
@@ -39,7 +41,8 @@ const isDesktop = () => window.innerWidth > 768;
 const NavigationProvider = ({ children }: Props) => {
   const [showNavbar, setShowNavbar] = useState(() => isDesktop());
   const [showRoster, setShowRoster] = useState(() => isDesktop());
-  const [showChat, setShowChat] = useState(() => isDesktop());
+  const [showChat, setShowChat] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
   const isDesktopView = useRef(isDesktop());
 
   const location = useLocation();
@@ -103,6 +106,10 @@ const NavigationProvider = ({ children }: Props) => {
     setShowChat(!showChat);
   };
 
+  const toggleTranscript = (): void => {
+    setShowTranscript(!showTranscript);
+  };
+
   const providerValue = {
     showNavbar,
     showRoster,
@@ -114,6 +121,8 @@ const NavigationProvider = ({ children }: Props) => {
     closeNavbar,
     showChat,
     toggleChat,
+    showTranscript,
+    toggleTranscript,
   };
   return (
     <NavigationContext.Provider value={providerValue}>

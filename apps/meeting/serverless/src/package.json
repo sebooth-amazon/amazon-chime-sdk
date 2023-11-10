@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Amazon Chime SDK Serverless Demos",
   "dependencies": {
-    "aws-sdk": "^2.1357.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.430.0",
+    "aws-sdk": "^2.1475.0"
   },
   "license": "Apache-2.0",
   "repository": {

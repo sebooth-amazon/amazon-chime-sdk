@@ -15,6 +15,7 @@ import {
   ZoomOut,
   useContentShareState,
   Chat,
+  Feedback,
 } from 'amazon-chime-sdk-component-library-react';
 
 import { useNavigation } from '../../providers/NavigationProvider';
@@ -26,11 +27,14 @@ import FeaturedLayout from '../../components/icons/FeaturedLayout';
 import { useVideoTileGridControl } from '../../providers/VideoTileGridProvider';
 
 const Navigation: React.FC = () => {
-  const { toggleRoster, closeNavbar, toggleChat } = useNavigation();
-  const { theme, toggleTheme, layout, setLayout, priorityBasedPolicy } = useAppState();
+  const { toggleRoster, closeNavbar, toggleChat, toggleTranscript } = useNavigation();
+  const { theme, toggleTheme, layout, setLayout, priorityBasedPolicy, toggleTranscription } = useAppState();
   const { sharingAttendeeId } = useContentShareState();
   const { zoomIn, zoomOut } = useVideoTileGridControl();
-
+  const enableTranscription = async () => {
+    toggleTranscription();
+    toggleTranscript();
+  };
   return (
     <Navbar className="nav" flexDirection="column" container>
       <NavbarHeader title="Navigation" onClose={closeNavbar} />
@@ -45,6 +49,15 @@ const Navigation: React.FC = () => {
           onClick={toggleChat}
           label="Chat"
         />
+        <NavbarItem
+          icon={<Feedback />}
+          onClick={enableTranscription}
+          label="Transcription"
+        />
+
+
+      </Flex>
+      <Flex marginTop="auto">
         <NavbarItem
           icon={
             layout === Layout.Gallery ? (
@@ -78,8 +91,6 @@ const Navigation: React.FC = () => {
             />
           </>
         }
-      </Flex>
-      <Flex marginTop="auto">
         <NavbarItem
           icon={<Eye />}
           onClick={toggleTheme}

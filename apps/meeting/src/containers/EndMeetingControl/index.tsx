@@ -1,7 +1,7 @@
 // Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-import React, { useState } from 'react';
+import React, { ChangeEvent, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   ControlBarButton,
@@ -12,45 +12,66 @@ import {
   ModalButton,
   ModalButtonGroup,
   useLogger,
+  Textarea,
 } from 'amazon-chime-sdk-component-library-react';
 
 import { endMeeting } from '../../utils/api';
 import { StyledP } from './Styled';
 import { useAppState } from '../../providers/AppStateProvider';
 import routes from '../../constants/routes';
+import { useTranscriptions } from '../../providers/TranscriptionProvider';
 
-const EndMeetingControl: React.FC = () => {
+const EndMeetingControl = () => {
+
   const logger = useLogger();
   const [showModal, setShowModal] = useState(false);
+  const [summary, setSummary] = useState('Summarizing meeting notes ...');
   const toggleModal = (): void => setShowModal(!showModal);
   const { meetingId } = useAppState();
-  const history = useHistory();
 
+  const history = useHistory();
+  const { getTranscriptSummary, storeTranscriptionAndSummary } = useTranscriptions();
+  const handleSumamryChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSummary(event.target.value);
+  };
   const leaveMeeting = async (): Promise<void> => {
-    history.push(routes.HOME);
+    history.push(routes.ENDED);
   };
 
   const endMeetingForAll = async (): Promise<void> => {
     try {
       if (meetingId) {
+        // send transcript and summary
+        await storeTranscriptionAndSummary(summary);
         await endMeeting(meetingId);
-        history.push(routes.HOME);
+        history.push(routes.ENDED);
       }
     } catch (e) {
       logger.error(`Could not end meeting: ${e}`);
     }
   };
-
+  useEffect(() => {
+    if (showModal) {
+      getTranscriptSummary()
+        .then(summaryResult => {
+          setSummary(summaryResult);
+        });
+    }
+  }, [showModal]);
   return (
     <>
       <ControlBarButton icon={<Phone />} onClick={toggleModal} label="Leave" />
       {showModal && (
-        <Modal size="md" onClose={toggleModal} rootId="modal-root">
-          <ModalHeader title="End Meeting" />
+        <Modal size="lg" onClose={toggleModal} rootId="modal-root">
+          <ModalHeader title="Meeting Summary" />
           <ModalBody>
             <StyledP>
-              Leave meeting or you can end the meeting for all. The meeting
-              cannot be used once it ends.
+              <Textarea
+                value={summary}
+                onChange={handleSumamryChange}
+                placeholder="Meeting Summary"
+                label="Meeting Summary"
+              />
             </StyledP>
           </ModalBody>
           <ModalButtonGroup
@@ -60,7 +81,6 @@ const EndMeetingControl: React.FC = () => {
                 onClick={endMeetingForAll}
                 variant="primary"
                 label="End meeting for all"
-                closesModal
               />,
               <ModalButton
                 key="leave-meeting"
@@ -69,7 +89,12 @@ const EndMeetingControl: React.FC = () => {
                 label="Leave Meeting"
                 closesModal
               />,
-              <ModalButton key="cancel-meeting-ending" variant="secondary" label="Cancel" closesModal />,
+              <ModalButton
+                key="cancel-meeting-ending"
+                variant="secondary"
+                label="Cancel"
+                closesModal
+              />,
             ]}
           />
         </Modal>

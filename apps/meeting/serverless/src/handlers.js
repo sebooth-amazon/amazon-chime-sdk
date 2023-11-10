@@ -2,29 +2,37 @@
 // SPDX-License-Identifier: MIT-0
 
 const AWS = require('aws-sdk');
+const {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} = require('@aws-sdk/client-bedrock-runtime');
 const ddb = new AWS.DynamoDB();
-const chime = new AWS.Chime({ region: 'us-east-1' });
-chime.endpoint = new AWS.Endpoint('https://service.chime.aws.amazon.com/console');
+const config = { region: 'us-east-1' };
+const chime = new AWS.ChimeSDKMeetings(config);
+// chime.endpoint = new AWS.Endpoint('https://service.chime.aws.amazon.com/console');
 
 // Optional features like Echo Reduction is only available on Regional Meetings API
 // https://docs.aws.amazon.com/chime/latest/APIReference/API_Operations_Amazon_Chime_SDK_Meetings.html
 const chimeRegional = new AWS.ChimeSDKMeetings({ region: 'us-east-1' });
-const chimeRegionalEndpoint = 
-  process.env.REGIONAL_ENDPOINT || 
+const chimeRegionalEndpoint =
+  process.env.REGIONAL_ENDPOINT ||
   'https://meetings-chime.us-east-1.amazonaws.com';
 chimeRegional.endpoint = new AWS.Endpoint(chimeRegionalEndpoint);
 
+const bedrockClient = new BedrockRuntimeClient(config);
+
 // return regional API just for Echo Reduction for now.
 function getClientForMeeting(meeting, echoReduction = 'false') {
-  if ( echoReduction === 'true' || (
-    meeting &&
-    meeting.Meeting &&
-    meeting.Meeting.MeetingFeatures &&
-    meeting.Meeting.MeetingFeatures.Audio &&
-    meeting.Meeting.MeetingFeatures.Audio.EchoReduction === 'AVAILABLE')
+  if (
+    echoReduction === 'true' ||
+    (meeting &&
+      meeting.Meeting &&
+      meeting.Meeting.MeetingFeatures &&
+      meeting.Meeting.MeetingFeatures.Audio &&
+      meeting.Meeting.MeetingFeatures.Audio.EchoReduction === 'AVAILABLE')
   ) {
-      return chimeRegional;
-    }
+    return chimeRegional;
+  }
   return chime;
 }
 
@@ -40,99 +48,111 @@ const logGroupName = process.env.BROWSER_LOG_GROUP_NAME;
 // Create a unique id
 function uuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    var r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
 // Retrieve meeting from the meeting table by meeting title
-const getMeeting = async (meetingTitle) => {
-  const result = await ddb.getItem({
-    TableName: meetingsTableName,
-    Key: {
-      'Title': {
-        S: meetingTitle
+const getMeeting = async meetingTitle => {
+  const result = await ddb
+    .getItem({
+      TableName: meetingsTableName,
+      Key: {
+        Title: {
+          S: meetingTitle,
+        },
       },
-    },
-  }).promise();
+    })
+    .promise();
   return result.Item ? JSON.parse(result.Item.Data.S) : null;
-}
+};
 
 // Add meeting in the meeting table
 const putMeeting = async (title, meetingInfo) => {
-  await ddb.putItem({
-    TableName: meetingsTableName,
-    Item: {
-      'Title': { S: title },
-      'Data': { S: JSON.stringify(meetingInfo) },
-      'TTL': {
-        N: '' + oneDayFromNow
-      }
-    }
-  }).promise();
-}
+  await ddb
+    .putItem({
+      TableName: meetingsTableName,
+      Item: {
+        Title: { S: title },
+        Data: { S: JSON.stringify(meetingInfo) },
+        TTL: {
+          N: '' + oneDayFromNow,
+        },
+      },
+    })
+    .promise();
+};
 
 // Retrieve attendee from the attendee table
 const getAttendee = async (title, attendeeId) => {
-  const result = await ddb.getItem({
-    TableName: attendeesTableName,
-    Key: {
-      'AttendeeId': {
-        S: `${title}/${attendeeId}`
-      }
-    }
-  }).promise();
+  const result = await ddb
+    .getItem({
+      TableName: attendeesTableName,
+      Key: {
+        AttendeeId: {
+          S: `${title}/${attendeeId}`,
+        },
+      },
+    })
+    .promise();
   if (!result.Item) {
     return 'Unknown';
   }
   return result.Item.Name.S;
-}
+};
 
 // Add attendee in the attendee table
 const putAttendee = async (title, attendeeId, name) => {
-  await ddb.putItem({
-    TableName: attendeesTableName,
-    Item: {
-      'AttendeeId': {
-        S: `${title}/${attendeeId}`
+  await ddb
+    .putItem({
+      TableName: attendeesTableName,
+      Item: {
+        AttendeeId: {
+          S: `${title}/${attendeeId}`,
+        },
+        Name: { S: name },
+        TTL: {
+          N: '' + oneDayFromNow,
+        },
       },
-      'Name': { S: name },
-      'TTL': {
-        N: '' + oneDayFromNow
-      }
-    }
-  }).promise();
-}
+    })
+    .promise();
+};
 
 // Set up SQS notifications
 function getNotificationsConfig() {
   if (provideQueueArn) {
-    return  {
+    return {
       SqsQueueArn: sqsQueueArn,
     };
   }
-  return {}
+  return {};
 }
 
 exports.createMeeting = async (event, context, callback) => {
   var response = {
-    "statusCode": 200,
-    "headers": {},
-    "body": '',
-    "isBase64Encoded": false
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
   };
   const title = event.queryStringParameters.title;
   const region = event.queryStringParameters.region || 'us-east-1';
 
   if (!title) {
-    response["statusCode"] = 400;
-    response["body"] = "Must provide title";
+    response['statusCode'] = 400;
+    response['body'] = 'Must provide title';
     callback(null, response);
     return;
   }
 
   let meetingInfo = await getMeeting(title);
-  const client = getClientForMeeting(meetingInfo, event.queryStringParameters.ns_es);
+  const client = getClientForMeeting(
+    meetingInfo,
+    event.queryStringParameters.ns_es
+  );
   if (!meetingInfo) {
     const request = {
       ClientRequestToken: uuid(),
@@ -144,10 +164,10 @@ exports.createMeeting = async (event, context, callback) => {
       request.MeetingFeatures = {
         Audio: {
           // The EchoReduction parameter helps the user enable and use Amazon Echo Reduction.
-          EchoReduction: 'AVAILABLE'
-        }
+          EchoReduction: 'AVAILABLE',
+        },
       };
-    } 
+    }
     console.info('Creating new meeting: ' + JSON.stringify(request));
     meetingInfo = await client.createMeeting(request).promise();
     await putMeeting(title, meetingInfo);
@@ -166,24 +186,27 @@ exports.createMeeting = async (event, context, callback) => {
 
 exports.join = async (event, context, callback) => {
   var response = {
-    "statusCode": 200,
-    "headers": {},
-    "body": '',
-    "isBase64Encoded": false
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
   };
   const title = event.queryStringParameters.title;
-  const name = event.queryStringParameters.name;
+  const name = decodeURI(event.queryStringParameters.name);
   const region = event.queryStringParameters.region || 'us-east-1';
 
   if (!title || !name) {
-    response["statusCode"] = 400;
-    response["body"] = "Must provide title and name";
+    response['statusCode'] = 400;
+    response['body'] = 'Must provide title and name';
     callback(null, response);
     return;
   }
 
   let meetingInfo = await getMeeting(title);
-  const client = getClientForMeeting(meetingInfo, event.queryStringParameters.ns_es);
+  const client = getClientForMeeting(
+    meetingInfo,
+    event.queryStringParameters.ns_es
+  );
   if (!meetingInfo) {
     const request = {
       ClientRequestToken: uuid(),
@@ -195,27 +218,31 @@ exports.join = async (event, context, callback) => {
       request.MeetingFeatures = {
         Audio: {
           // The EchoReduction parameter helps the user enable and use Amazon Echo Reduction.
-          EchoReduction: 'AVAILABLE'
-        }
+          EchoReduction: 'AVAILABLE',
+        },
       };
     }
-    console.info('Creating new meeting before joining: ' + JSON.stringify(request));
+    console.info(
+      'Creating new meeting before joining: ' + JSON.stringify(request)
+    );
     meetingInfo = await client.createMeeting(request).promise();
     await putMeeting(title, meetingInfo);
   }
 
   console.info('Adding new attendee');
-  const attendeeInfo = (await client.createAttendee({
+  const attendeeInfo = await client
+    .createAttendee({
       MeetingId: meetingInfo.Meeting.MeetingId,
       ExternalUserId: uuid(),
-    }).promise());
+    })
+    .promise();
   putAttendee(title, attendeeInfo.Attendee.AttendeeId, name);
 
   const joinInfo = {
     JoinInfo: {
       Title: title,
       Meeting: meetingInfo.Meeting,
-      Attendee: attendeeInfo.Attendee
+      Attendee: attendeeInfo.Attendee,
     },
   };
 
@@ -225,26 +252,70 @@ exports.join = async (event, context, callback) => {
 
 exports.end = async (event, context, callback) => {
   var response = {
-    "statusCode": 200,
-    "headers": {},
-    "body": '',
-    "isBase64Encoded": false
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
   };
   const title = event.queryStringParameters.title;
   let meetingInfo = await getMeeting(title);
   const client = getClientForMeeting(meetingInfo);
-  await client.deleteMeeting({
-    MeetingId: meetingInfo.Meeting.MeetingId,
-  }).promise();
+  await client
+    .deleteMeeting({
+      MeetingId: meetingInfo.Meeting.MeetingId,
+    })
+    .promise();
+  callback(null, response);
+};
+
+exports.startTranscription = async (event, context, callback) => {
+  var response = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
+  };
+  const title = event.queryStringParameters.title;
+  let meetingInfo = await getMeeting(title);
+  const client = getClientForMeeting(meetingInfo);
+  const clientResponse = await client
+    .startMeetingTranscription({
+      MeetingId: meetingInfo.Meeting.MeetingId,
+      TranscriptionConfiguration: {
+        EngineTranscribeSettings: {
+          LanguageCode: 'en-US',
+        },
+      },
+    })
+    .promise();
+  console.info('startedTranscription', clientResponse);
+  callback(null, response);
+};
+
+exports.stopTranscription = async (event, context, callback) => {
+  var response = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
+  };
+  const title = event.queryStringParameters.title;
+  let meetingInfo = await getMeeting(title);
+  const client = getClientForMeeting(meetingInfo);
+  await client
+    .stopMeetingTranscription({
+      MeetingId: meetingInfo.Meeting.MeetingId,
+    })
+    .promise();
   callback(null, response);
 };
 
 exports.attendee = async (event, context, callback) => {
   var response = {
-    "statusCode": 200,
-    "headers": {},
-    "body": '',
-    "isBase64Encoded": false
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
   };
   const title = event.queryStringParameters.title;
   const attendeeId = event.queryStringParameters.attendee;
@@ -256,7 +327,7 @@ exports.attendee = async (event, context, callback) => {
   };
   response.body = JSON.stringify(attendeeInfo, '', 2);
   callback(null, response);
-}
+};
 
 // Called when SQS receives records of meeting events and logs out those records
 exports.sqs_handler = async (event, context, callback) => {
@@ -265,28 +336,32 @@ exports.sqs_handler = async (event, context, callback) => {
   console.log(records);
 
   return {};
-}
+};
 
 // Called when EventBridge receives a meeting event and logs out the event
 exports.event_bridge_handler = async (event, context, callback) => {
   console.log(event);
 
   return {};
-}
+};
 
 async function ensureLogStream(cloudWatchClient, logStreamName) {
   var describeLogStreamsParams = {
-    "logGroupName": logGroupName,
-    "logStreamNamePrefix": logStreamName
+    logGroupName: logGroupName,
+    logStreamNamePrefix: logStreamName,
   };
-  var response = await cloudWatchClient.describeLogStreams(describeLogStreamsParams).promise();
-  var foundStream = response.logStreams.find(s => s.logStreamName === logStreamName);
+  var response = await cloudWatchClient
+    .describeLogStreams(describeLogStreamsParams)
+    .promise();
+  var foundStream = response.logStreams.find(
+    s => s.logStreamName === logStreamName
+  );
   if (foundStream) {
     return foundStream.uploadSequenceToken;
   }
   var putLogEventsInput = {
-    "logGroupName": logGroupName,
-    "logStreamName": logStreamName
+    logGroupName: logGroupName,
+    logStreamName: logStreamName,
   };
   await cloudWatchClient.createLogStream(putLogEventsInput).promise();
   return null;
@@ -294,29 +369,32 @@ async function ensureLogStream(cloudWatchClient, logStreamName) {
 
 exports.logs = async (event, context) => {
   const response = {
-    "statusCode": 200,
-    "headers": {},
-    "body": '',
-    "isBase64Encoded": false
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
   };
   {
     const body = JSON.parse(event.body);
     if (!body.logs || !body.appName || !body.timestamp) {
-      response.body = "Empty Parameters Received";
+      response.body = 'Empty Parameters Received';
       response.statusCode = 400;
       return response;
     }
     const logStreamName = `ChimeReactSDKMeeting_${body.timestamp}`;
     const cloudWatchClient = new AWS.CloudWatchLogs({
-      apiVersion: '2014-03-28'
+      apiVersion: '2014-03-28',
     });
     const putLogEventsInput = {
-      "logGroupName": logGroupName,
-      "logStreamName": logStreamName
+      logGroupName: logGroupName,
+      logStreamName: logStreamName,
     };
-    const uploadSequence = await ensureLogStream(cloudWatchClient, logStreamName);
+    const uploadSequence = await ensureLogStream(
+      cloudWatchClient,
+      logStreamName
+    );
     if (uploadSequence) {
-      putLogEventsInput["sequenceToken"] = uploadSequence;
+      putLogEventsInput['sequenceToken'] = uploadSequence;
     }
     const logEvents = [];
     if (body.logs.length > 0) {
@@ -325,18 +403,117 @@ exports.logs = async (event, context) => {
         const timestampIso = new Date(log.timestampMs).toISOString();
         let message = `${body.appName} ${timestampIso} [${log.sequenceNumber}] [${log.logLevel}]`;
         if (body.meetingId && body.attendeeId) {
-          message = `${message} [meetingId: ${body.meetingId.toString()}] [attendeeId: ${body.attendeeId}]: ${log.message}`;
+          message = `${message} [meetingId: ${body.meetingId.toString()}] [attendeeId: ${
+            body.attendeeId
+          }]: ${log.message}`;
         } else {
           message = `${message}: ${log.message}`;
         }
         logEvents.push({
-          "message": message,
-          "timestamp": log.timestampMs
+          message: message,
+          timestamp: log.timestampMs,
         });
       }
-      putLogEventsInput["logEvents"] = logEvents;
+      putLogEventsInput['logEvents'] = logEvents;
       await cloudWatchClient.putLogEvents(putLogEventsInput).promise();
     }
   }
+  return response;
+};
+exports.summarize = async (event, context) => {
+  const response = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
+  };
+  const requestBody = JSON.parse(event.body);
+
+  const body = {
+    prompt: `\n\nHuman:${requestBody.transcript}\n\nAssistant:`,
+    max_tokens_to_sample: 2000,
+    temperature: 1,
+    top_k: 250,
+    top_p: 0.999,
+    stop_sequences: ['\n\nHuman:'],
+    anthropic_version: 'bedrock-2023-05-31',
+  };
+
+  const input = {
+    // InvokeModelRequest
+    body: JSON.stringify(body), // required
+    contentType: 'application/json',
+    accept: '*/*',
+    modelId: 'anthropic.claude-v2', // required see https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html
+  };
+  const command = new InvokeModelCommand(input);
+  try {
+    const commandResponse = await bedrockClient.send(command);
+    console.log('model response', commandResponse);
+    response.body = commandResponse.body.transformToString();
+    return response;
+  } catch (err) {
+    response.statusCode = 500;
+    response.body = err.message;
+    return response;
+  }
+  // { // InvokeModelResponse
+  //   body: "BLOB_VALUE", // required
+  //   contentType: "STRING_VALUE", // required
+  // };
+};
+exports.sanitize = async (event, context) => {
+  const response = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
+  };
+  const requestBody = JSON.parse(event.body);
+
+  const body = {
+    prompt: `\n\nHuman:${requestBody.transcript}\n\nAssistant:`,
+    max_tokens_to_sample: 2000,
+    temperature: 1,
+    top_k: 250,
+    top_p: 0.999,
+    stop_sequences: ['\n\nHuman:'],
+    anthropic_version: 'bedrock-2023-05-31',
+  };
+
+  const input = {
+    // InvokeModelRequest
+    body: JSON.stringify(body), // required
+    contentType: 'application/json',
+    accept: '*/*',
+    modelId: 'anthropic.claude-instant-v1', // required see https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html
+  };
+  const command = new InvokeModelCommand(input);
+  try {
+    const commandResponse = await bedrockClient.send(command);
+    console.log('model response', commandResponse);
+    response.body = commandResponse.body.transformToString();
+    return response;
+  } catch (err) {
+    response.statusCode = 500;
+    response.body = err.message;
+    return response;
+  }
+  // { // InvokeModelResponse
+  //   body: "BLOB_VALUE", // required
+  //   contentType: "STRING_VALUE", // required
+  // };
+};
+
+exports.saveSummary = async (event, context) => {
+  const response = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    isBase64Encoded: false,
+  };
+
+  // Insert integration logic with 3rd party system here.
+
   return response;
 };
