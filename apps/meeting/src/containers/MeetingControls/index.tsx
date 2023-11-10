@@ -18,13 +18,14 @@ import EndMeetingControl from '../EndMeetingControl';
 import { useNavigation } from '../../providers/NavigationProvider';
 import { StyledControls } from './Styled';
 import { useAppState } from '../../providers/AppStateProvider';
-import { VideoFiltersCpuUtilization } from '../../types';
+import { MeetingMode, VideoFiltersCpuUtilization } from '../../types';
 import VideoInputTransformControl from '../../components/MeetingControls/VideoInputTransformControl';
+import LeaveMeetingControl from '../LeaveMeetingControl';
 
 const MeetingControls: React.FC = () => {
   const { toggleNavbar, closeRoster, showRoster } = useNavigation();
   const { isUserActive } = useUserActivityState();
-  const { isWebAudioEnabled, videoTransformCpuUtilization } = useAppState();
+  const { isWebAudioEnabled, videoTransformCpuUtilization, meetingMode } = useAppState();
   const videoTransformsEnabled = videoTransformCpuUtilization !== VideoFiltersCpuUtilization.Disabled;
 
   const handleToggle = (): void => {
@@ -47,11 +48,11 @@ const MeetingControls: React.FC = () => {
           onClick={handleToggle}
           label="Menu"
         />
-        { isWebAudioEnabled ? <AudioInputVFControl /> :  <AudioInputControl /> }
-        { videoTransformsEnabled ? <VideoInputTransformControl /> : <VideoInputControl/> }
+        {isWebAudioEnabled ? <AudioInputVFControl /> : <AudioInputControl />}
+        {videoTransformsEnabled ? <VideoInputTransformControl /> : <VideoInputControl />}
         <ContentShareControl />
         <AudioOutputControl />
-        <EndMeetingControl />
+        {meetingMode === MeetingMode.Host ? <EndMeetingControl /> : <LeaveMeetingControl />}
       </ControlBar>
     </StyledControls>
   );

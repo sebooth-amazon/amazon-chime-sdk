@@ -29,7 +29,7 @@ const NoMeetingRedirect: React.FC<PropsWithChildren> = ({ children }) => {
         type: ActionType.ADD,
         payload: payload,
       });
-      history.push(routes.HOME);
+      history.push(routes.ENDED);
     }
   }, []);
 

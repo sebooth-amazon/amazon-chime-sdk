@@ -13,10 +13,13 @@ type Props = {
 
 interface AppStateValue {
   meetingId: string;
+  meetingTitle: string;
+  urlParametersProvided: boolean;
   localUserName: string;
   theme: string;
   region: string;
   isWebAudioEnabled: boolean;
+  isTranscriptionEnabled: boolean;
   videoTransformCpuUtilization: string;
   imageBlob: Blob | undefined;
   isEchoReductionEnabled: boolean;
@@ -27,6 +30,7 @@ interface AppStateValue {
   layout: Layout;
   joinInfo: JoinMeetingInfo | undefined;
   toggleTheme: () => void;
+  toggleTranscription: () => void;
   toggleWebAudio: () => void;
   toggleSimulcast: () => void;
   togglePriorityBasedPolicy: () => void;
@@ -37,6 +41,7 @@ interface AppStateValue {
   setJoinInfo: (joinInfo: JoinMeetingInfo | undefined) => void;
   setLayout: React.Dispatch<React.SetStateAction<Layout>>;
   setMeetingId: React.Dispatch<React.SetStateAction<string>>;
+  setMeetingTitle: React.Dispatch<React.SetStateAction<string>>;
   setLocalUserName: React.Dispatch<React.SetStateAction<string>>;
   setRegion: React.Dispatch<React.SetStateAction<string>>;
   setBlob: (imageBlob: Blob) => void;
@@ -61,17 +66,20 @@ const query = new URLSearchParams(location.search);
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function AppStateProvider({ children }: Props) {
   const logger = useLogger();
+  const [urlParametersProvided] = useState(!!query.get('meetingId'));
   const [meetingId, setMeetingId] = useState(query.get('meetingId') || '');
+  const [meetingTitle, setMeetingTitle] = useState(query.get('meetingTitle') || '');
   const [region, setRegion] = useState(query.get('region') || '');
-  const [meetingMode, setMeetingMode] = useState(MeetingMode.Attendee);
+  const [meetingMode, setMeetingMode] = useState(query.get('role')?.includes('Worker') ? MeetingMode.Host : MeetingMode.Attendee);
   const [joinInfo, setJoinInfo] = useState<JoinMeetingInfo | undefined>(undefined);
   const [layout, setLayout] = useState(Layout.Gallery);
-  const [localUserName, setLocalUserName] = useState('');
+  const [localUserName, setLocalUserName] = useState(`${query.get('name') ? decodeURI(query.get('name') || '') : ''} (${query.get('role') ? decodeURI(query.get('role') || '') : ''})`);
   const [isWebAudioEnabled, setIsWebAudioEnabled] = useState(true);
+  const [isTranscriptionEnabled, setIsTranscriptionEnabled] = useState(true);
   const [priorityBasedPolicy, setPriorityBasedPolicy] = useState<VideoPriorityBasedPolicy | undefined>(undefined);
   const [enableSimulcast, setEnableSimulcast] = useState(false);
   const [keepLastFrameWhenPaused, setKeepLastFrameWhenPaused] = useState(false);
-  const [isEchoReductionEnabled, setIsEchoReductionEnabled] = useState(false);
+  const [isEchoReductionEnabled, setIsEchoReductionEnabled] = useState(true);
   const [theme, setTheme] = useState(() => {
     const storedTheme = localStorage.getItem('theme');
     return storedTheme || 'light';
@@ -93,7 +101,7 @@ export function AppStateProvider({ children }: Props) {
         grd.addColorStop(1, '#004e92');
         ctx.fillStyle = grd;
         ctx.fillRect(0, 0, 500, 500);
-        canvas.toBlob(function(blob) {
+        canvas.toBlob(function (blob) {
           if (blob !== null) {
             console.log('loaded canvas', canvas, blob);
             setImageBlob(blob);
@@ -120,6 +128,10 @@ export function AppStateProvider({ children }: Props) {
 
   const toggleWebAudio = (): void => {
     setIsWebAudioEnabled((current) => !current);
+  };
+
+  const toggleTranscription = (): void => {
+    setIsTranscriptionEnabled((current) => !current);
   };
 
   const toggleSimulcast = (): void => {
@@ -152,9 +164,12 @@ export function AppStateProvider({ children }: Props) {
 
   const providerValue = {
     meetingId,
+    meetingTitle,
+    urlParametersProvided,
     localUserName,
     theme,
     isWebAudioEnabled,
+    isTranscriptionEnabled,
     videoTransformCpuUtilization,
     imageBlob,
     isEchoReductionEnabled,
@@ -166,6 +181,7 @@ export function AppStateProvider({ children }: Props) {
     priorityBasedPolicy,
     keepLastFrameWhenPaused,
     toggleTheme,
+    toggleTranscription,
     toggleWebAudio,
     togglePriorityBasedPolicy,
     toggleKeepLastFrameWhenPaused,
@@ -176,6 +192,7 @@ export function AppStateProvider({ children }: Props) {
     setLayout,
     setJoinInfo,
     setMeetingId,
+    setMeetingTitle,
     setLocalUserName,
     setRegion,
     setBlob,

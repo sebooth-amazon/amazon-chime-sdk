@@ -32,7 +32,7 @@ const useMeetingEndRedirect = () => {
           replaceAll: true,
         },
       });
-      history.push(routes.HOME);
+      history.push(routes.ENDED);
     }
   }, [meetingStatus]);
 };

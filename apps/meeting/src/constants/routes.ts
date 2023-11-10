@@ -8,6 +8,7 @@ export const rootPath: string = window.location.href.includes(awsPath)
 
 const routes = {
   HOME: `${rootPath}`,
+  ENDED: `${rootPath}ended`,
   DEVICE: `${rootPath}devices`,
   MEETING: `${rootPath}meeting`,
 };

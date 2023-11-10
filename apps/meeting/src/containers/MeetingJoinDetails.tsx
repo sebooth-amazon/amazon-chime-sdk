@@ -16,13 +16,14 @@ import {
 import routes from '../constants/routes';
 import Card from '../components/Card';
 import { useAppState } from '../providers/AppStateProvider';
+import { MeetingMode } from '../types';
 
 const MeetingJoinDetails = () => {
   const meetingManager = useMeetingManager();
   const history = useHistory();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { meetingId, localUserName } = useAppState();
+  const { meetingId, localUserName, meetingMode } = useAppState();
 
   const handleJoinMeeting = async () => {
     setIsLoading(true);
@@ -45,7 +46,7 @@ const MeetingJoinDetails = () => {
           onClick={handleJoinMeeting}
         />
         <Label style={{ margin: '.75rem 0 0 0' }}>
-          Joining meeting <b>{meetingId}</b> as <b>{localUserName}</b>
+          Joining meeting <b>{meetingId}</b> as <b>{localUserName}</b> ({MeetingMode[meetingMode]})
         </Label>
       </Flex>
       {error && (
