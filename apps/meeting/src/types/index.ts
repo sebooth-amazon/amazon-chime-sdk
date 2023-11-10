@@ -40,6 +40,7 @@ export type ContentShareControlContextType = {
 export enum MeetingMode {
   Spectator,
   Attendee,
+  Host,
 }
 
 export enum Layout {
