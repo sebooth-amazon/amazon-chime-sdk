@@ -1,7 +1,7 @@
 // Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import {
   Modal,
@@ -16,10 +16,17 @@ import Card from '../components/Card';
 
 // Show permission prompt when the user is granting the browser permissions
 // Show nothing if permission is already granted or component loads on initial render
-const DevicePermissionPrompt = () => {
+const DevicePermissionPrompt = (props: { devicePermissionCallback?: (status: DeviceLabelTriggerStatus) => void }) => {
+  const { devicePermissionCallback } = props;
   const logger = useLogger();
   const status = useDeviceLabelTriggerStatus();
+  useEffect(() => {
+    console.log(`DevicePermissionPrompt status:${status}`);
+    if (devicePermissionCallback) {
+      devicePermissionCallback(status);
+    }
 
+  }, [status]);
   return status === DeviceLabelTriggerStatus.IN_PROGRESS ? (
     <Modal
       size="md"

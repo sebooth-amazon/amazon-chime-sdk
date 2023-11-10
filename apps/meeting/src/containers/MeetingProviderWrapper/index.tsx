@@ -24,6 +24,7 @@ import { Meeting, Home, DeviceSetup } from '../../views';
 import MeetingEventObserver from '../MeetingEventObserver';
 import { useAppState } from '../../providers/AppStateProvider';
 import { VideoFiltersCpuUtilization } from '../../types';
+import Ended from '../../views/Ended';
 
 const MeetingProviderWithDeviceReplacement: React.FC<PropsWithChildren> = ({ children }) => {
   const { addVoiceFocus } = useVoiceFocus();
@@ -67,6 +68,7 @@ const MeetingProviderWrapper: React.FC = () => {
                 <MeetingModeSelector />
               </NoMeetingRedirect>
             </Route>
+            <Route exact path={routes.ENDED} component={Ended} />
           </Switch>
         </NavigationProvider>
         <MeetingEventObserver />

@@ -6,20 +6,20 @@ import React from 'react';
 import {
   Flex,
   Heading,
-  PrimaryButton,
 } from 'amazon-chime-sdk-component-library-react';
 
 import { useAppState } from '../../providers/AppStateProvider';
 import { StyledList } from './Styled';
+import { MeetingMode } from '../../types';
 
 const MeetingDetails = () => {
-  const { meetingId, toggleTheme, theme, region } = useAppState();
+  const { meetingId, meetingTitle, region, meetingMode } = useAppState();
 
   return (
     <Flex container layout="fill-space-centered">
       <Flex mb="2rem" mr={{ md: '2rem' }} px="1rem">
         <Heading level={4} tag="h1" mb={2}>
-          Meeting information
+          {meetingTitle ? meetingTitle : 'Meeting information'}
         </Heading>
         <StyledList>
           <div>
@@ -30,12 +30,11 @@ const MeetingDetails = () => {
             <dt>Hosted region</dt>
             <dd>{region}</dd>
           </div>
+          <div>
+            <dt>Role</dt>
+            <dd>{MeetingMode[meetingMode]}</dd>
+          </div>
         </StyledList>
-        <PrimaryButton
-          mt={4}
-          label={theme === 'light' ? 'Dark mode' : 'Light mode'}
-          onClick={toggleTheme}
-        ></PrimaryButton>
       </Flex>
     </Flex>
   );
